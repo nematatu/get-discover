@@ -19,13 +19,13 @@ dedicated Chrome profile
 
 ## Quick start
 
-Requirements before cloning:
+Required:
 
 - macOS
 - Google Chrome
 - a Google account that has Discover available
 
-Everything else is bootstrapped by the repository.
+Bun is installed automatically if it is missing.
 
 ```bash
 git clone https://github.com/nematatu/get-discover.git
@@ -33,13 +33,15 @@ cd get-discover
 bash setup.sh
 ```
 
+If you downloaded the repository as a ZIP instead, enter the extracted directory and run the same `bash setup.sh`.
+
 On the first run, `setup.sh`:
 
 1. installs Bun locally for your user if it is missing,
 2. starts a dedicated Chrome profile with refresh-token binding disabled,
 3. asks you to sign in to Chrome with the Google account whose Discover feed you want,
 4. verifies that Chrome stored an **unbound** refresh token,
-5. fetches several Discover pages,
+5. fetches up to 5 Discover pages,
 6. writes `output/discover.json` and `output/discover.html`,
 7. opens the HTML in Chrome.
 
@@ -53,18 +55,26 @@ Your normal Chrome profile is not modified.
 
 ## Subsequent runs
 
+Use the wrapper so it works even if Bun was just installed and your shell PATH has not been reloaded:
+
 ```bash
-bun run discover
+bash run.sh
 ```
 
 Default: up to 5 pages.
 
 ```bash
-bun run discover -- --pages 10
-bun run discover -- --pages 20 --no-open
+bash run.sh --pages 10
+bash run.sh --pages 20 --no-open
 ```
 
 The Discover API usually returns about 10 prefetchable article entries per page, but the exact count is server-controlled. Pagination stops when Google stops returning a next-page token.
+
+For development, direct Bun commands are also available:
+
+```bash
+bun run discover -- --pages 5
+```
 
 ## Output
 
@@ -84,7 +94,23 @@ The JSON contains article metadata only:
 - favicon
 - snippet
 
-OAuth refresh/access tokens are never written to the output and are never printed.
+OAuth refresh/access tokens and pagination tokens are not written to the output and are never printed.
+
+## Reset the dedicated profile
+
+If the dedicated profile was created incorrectly, signed into the wrong account, or contains only a bound token:
+
+```bash
+bash setup.sh --reset
+```
+
+This deletes only:
+
+```text
+~/.local/share/get-discover/
+```
+
+It does not touch your normal Chrome profile.
 
 ## Why a dedicated Chrome profile?
 
@@ -96,13 +122,15 @@ The setup launches a fresh profile with:
 --disable-features=EnableChromeRefreshTokenBinding,EnableChromeRefreshTokenBindingUpgrade
 ```
 
-That produces an unbound Chrome refresh token. The tool can then use the same Chrome IssueToken flow to mint a `https://www.googleapis.com/auth/googlenow` access token.
+That produces an unbound Chrome refresh token. The tool can then use the Chrome IssueToken flow to mint a `https://www.googleapis.com/auth/googlenow` access token.
 
 ## Is this really my Discover feed?
 
 The request is authenticated with the Google account signed into the dedicated Chrome profile and the access token carries the `googlenow` scope. The response comes directly from `discover-pa.googleapis.com`.
 
 However, this project emulates mobile Chrome client metadata because desktop Chrome does not expose the Discover UI. Google may apply client/platform experiments or ranking differences, so exact card-for-card parity with the Discover UI on a particular phone or tablet is **not guaranteed**.
+
+The precise claim is: **this is the authenticated account's Discover API feed for the emulated Chrome Feed client.**
 
 ## Security model
 
@@ -112,11 +140,38 @@ The implementation deliberately:
 
 - does not print refresh/access tokens,
 - does not persist decrypted tokens,
-- does not upload credentials anywhere other than Google's token/Discover endpoints,
+- does not persist next-page tokens,
+- sends credentials only to Google's token/Discover endpoints,
 - keeps the dedicated Chrome profile outside the Git repository,
 - ignores generated output.
 
 Do not paste token values into issues, logs, AI chats, or screenshots.
+
+macOS may ask for permission to access the `Chrome Safe Storage` Keychain item. That is expected.
+
+## Troubleshooting
+
+### `No unbound Chrome refresh token was found`
+
+Make sure you signed in to **Chrome itself**, not only to a Google website. Then:
+
+```bash
+bash setup.sh --reset
+```
+
+### `database is locked`
+
+Close the dedicated get-discover Chrome instance and retry:
+
+```bash
+bash run.sh
+```
+
+Normal Chrome uses a different profile directory and may stay open.
+
+### Keychain access fails
+
+Allow the terminal/Bun process to read the `Chrome Safe Storage` Keychain item when macOS prompts. The token is decrypted only in memory.
 
 ## Development
 
@@ -153,3 +208,5 @@ Verified end-to-end on macOS arm64 with Chrome 154:
 - Discover first page: HTTP 200
 - response decoding: article metadata extracted
 - next-page token extraction: working
+
+The pagination request implementation follows Chromium's `CreateFeedQueryLoadMoreRequest()` structure; exact server behavior remains server-controlled.
