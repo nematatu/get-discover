@@ -72,7 +72,6 @@ if ! has_unbound_token; then
 
   read -r -p "Press Enter after Chrome sign-in is complete: " _
 
-  # Stop only the dedicated browser process launched by this script.
   if kill -0 "$CHROME_PID" 2>/dev/null; then
     kill "$CHROME_PID" 2>/dev/null || true
     wait "$CHROME_PID" 2>/dev/null || true
@@ -96,4 +95,4 @@ echo "Unbound refresh token: OK"
 echo
 echo "Fetching Discover..."
 
-exec "$BUN_BIN" run discover -- --pages 5
+exec "$BUN_BIN" run src/cli.ts --pages 5
