@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 set -euo pipefail
 
 DATA_ROOT="${GET_DISCOVER_DATA_DIR:-$HOME/.local/share/get-discover}"
@@ -47,33 +47,32 @@ has_unbound_token() {
 
   local count
   count="$(
-    /usr/bin/sqlite3 "$db"       "SELECT COUNT(*) FROM token_service
-       WHERE service LIKE 'AccountId-%'
-         AND length(binding_key) = 0;"       2>/dev/null       | tr -cd '0-9'
+    /usr/bin/sqlite3 "$db" "SELECT COUNT(*) FROM token_service WHERE service LIKE 'AccountId-%' AND length(binding_key) = 0;" 2>/dev/null |
+      tr -cd '0-9'
   )" || return 1
 
   [[ "${count:-0}" -gt 0 ]]
 }
 
 if ! has_unbound_token; then
-  echo ""
+  echo
   echo "A dedicated Chrome window will open."
-  echo ""
+  echo
   echo "In that window:"
   echo "  1. Sign in to CHROME (not only google.com)."
   echo "  2. Use the Google account whose Discover feed you want."
   echo "  3. Return to this terminal and press Enter."
-  echo ""
+  echo
   echo "This profile is isolated from your normal Chrome profile:"
   echo "  $PROFILE_ROOT"
-  echo ""
+  echo
 
-  "$CHROME_BIN"     --user-data-dir="$PROFILE_ROOT"     --no-first-run     --disable-features=EnableChromeRefreshTokenBinding,EnableChromeRefreshTokenBindingUpgrade     >/dev/null 2>&1 &
-
+  "$CHROME_BIN" --user-data-dir="$PROFILE_ROOT" --no-first-run --disable-features=EnableChromeRefreshTokenBinding,EnableChromeRefreshTokenBindingUpgrade >/dev/null 2>&1 &
   CHROME_PID=$!
 
-  read -r "?Press Enter after Chrome sign-in is complete: "
+  read -r -p "Press Enter after Chrome sign-in is complete: " _
 
+  # Stop only the dedicated browser process launched by this script.
   if kill -0 "$CHROME_PID" 2>/dev/null; then
     kill "$CHROME_PID" 2>/dev/null || true
     wait "$CHROME_PID" 2>/dev/null || true
@@ -82,7 +81,7 @@ if ! has_unbound_token; then
   sleep 2
 
   if ! has_unbound_token; then
-    echo ""
+    echo >&2
     echo "No unbound Chrome refresh token was found." >&2
     echo "Make sure you signed in to Chrome itself." >&2
     echo "Then retry with a clean dedicated profile:" >&2
@@ -91,10 +90,10 @@ if ! has_unbound_token; then
   fi
 fi
 
-echo ""
+echo
 echo "Dedicated Chrome profile: OK"
 echo "Unbound refresh token: OK"
-echo ""
+echo
 echo "Fetching Discover..."
 
 exec "$BUN_BIN" run discover -- --pages 5
